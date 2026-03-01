@@ -21,5 +21,9 @@ app.get("/health", (_, res) => {
 });
 
 // routes import
+import assignmentRouter from "./src/routes/assignment.routes";
+
+// routes
+app.use("/api/assignments", assignmentRouter);
 
 export { app };
