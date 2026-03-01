@@ -190,7 +190,7 @@ const insertRows = async (
 const initsandbox = async (
   identityId: string,
   assignmentId: string
-): Promise<{ schemaName: string; isNew: boolean }> => {
+): Promise<{ sandboxId: string; schemaName: string; isNew: boolean }> => {
   try {
     if (!identityId) {
       throw new ApiError(401, "Identity ID is required");
@@ -200,10 +200,19 @@ const initsandbox = async (
       throw new ApiError(400, "Assignment ID is required");
     }
 
-    const existingSandbox = await findExistingSandbox(identityId, assignmentId);
+    const existingSandbox = await SandboxMeta.findOne({
+      identityId,
+      assignmentId: new mongoose.Types.ObjectId(assignmentId),
+    });
 
     if (existingSandbox) {
+      await SandboxMeta.updateOne(
+        { _id: existingSandbox._id },
+        { lastUsedAt: new Date() }
+      );
+
       return {
+        sandboxId: existingSandbox._id.toString(),
         schemaName: existingSandbox.schemaName,
         isNew: false,
       };
@@ -222,7 +231,7 @@ const initsandbox = async (
 
     await insertRows(schemaName, assignment.sampleTables);
 
-    await SandboxMeta.create({
+    const newSandbox = await SandboxMeta.create({
       identityId,
       assignmentId: new mongoose.Types.ObjectId(assignmentId),
       schemaName,
@@ -230,6 +239,7 @@ const initsandbox = async (
     });
 
     return {
+      sandboxId: newSandbox._id.toString(),
       schemaName,
       isNew: true,
     };

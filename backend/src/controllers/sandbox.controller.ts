@@ -22,6 +22,7 @@ const initSandbox = asyncHandler(async (req: Request, res: Response) => {
     new ApiResponse(
       200,
       {
+        sandboxId: result.sandboxId,
         schemaName: result.schemaName,
         isNew: result.isNew,
       },
