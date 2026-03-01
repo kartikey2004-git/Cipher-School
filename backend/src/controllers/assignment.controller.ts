@@ -10,29 +10,26 @@ import { ApiError } from "../utils/ApiError";
 const getAllAssignments = asyncHandler(async (req: Request, res: Response) => {
   const assignments = await getallAssignments();
 
-  const response = new ApiResponse(
-    200,
-    assignments,
-    "Assignments fetched successfully"
-  );
-  res.status(response.statusCode).json(response);
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, assignments, "Assignments fetched successfully")
+    );
 });
 
 const getAssignmentById = asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
+  const rawId = req.params.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId;
 
-  if (!id || typeof id !== "string") {
-    throw new ApiError(400, "Invalid assignment id");
+  if (!id) {
+    throw new ApiError(400, "Assignment ID is required");
   }
 
   const assignment = await getassignmentById(id);
 
-  const response = new ApiResponse(
-    200,
-    assignment,
-    "Assignment fetched successfully"
-  );
-  res.status(response.statusCode).json(response);
+  return res
+    .status(200)
+    .json(new ApiResponse(200, assignment, "Assignment fetched successfully"));
 });
 
 export { getAllAssignments, getAssignmentById };

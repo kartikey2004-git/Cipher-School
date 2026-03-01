@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import { ApiError } from "./src/utils/ApiError";
 
 const app = express();
 
@@ -22,8 +23,10 @@ app.get("/health", (_, res) => {
 
 // routes import
 import assignmentRouter from "./src/routes/assignment.routes";
+import sandboxRouter from "./src/routes/sandbox.routes";
 
 // routes
 app.use("/api/assignments", assignmentRouter);
+app.use("/api/sandbox", sandboxRouter);
 
 export { app };
