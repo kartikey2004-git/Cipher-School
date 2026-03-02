@@ -1,0 +1,67 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-xl);
+  background: #ffffff;
+  border-bottom: 1px solid #eaeaea;
+  height: 56px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: 600;
+  font-size: 18px;
+  color: #111111;
+  text-decoration: none;
+
+  span {
+    color: #111111;
+  }
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+}
+
+.navLink {
+  color: #666666;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color var(--transition-fast);
+  text-decoration: none;
+
+  &:hover {
+    color: #111111;
+  }
+}
+
+.identityBadge {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) var(--space-sm);
+  background: #f7f7f7;
+  border-radius: 2px;
+  font-size: 12px;
+  color: #666666;
+  font-family: var(--font-mono);
+}
+
+.guestDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #999999;
+}
+
+.userDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #111111;
+}

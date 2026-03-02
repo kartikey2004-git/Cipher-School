@@ -1,7 +1,8 @@
 [
   {
     "title": "Find High Salary Employees",
-    "description": "Easy",
+    "description": "Filter employees based on salary threshold using a comparison operator.",
+    "difficulty": "easy",
     "question": "List all employees earning more than 50,000",
     "sampleTables": [
       {
@@ -47,12 +48,18 @@
         }
       ]
     },
+    "validationConfig": {
+      "orderMatters": false,
+      "numericTolerance": 0,
+      "caseSensitive": false
+    },
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:00:00.000Z"
   },
   {
     "title": "Department-wise Employee Count",
-    "description": "Medium",
+    "description": "Use GROUP BY with an aggregate function to count employees per department.",
+    "difficulty": "medium",
     "question": "Find the number of employees in each department",
     "sampleTables": [
       {
@@ -79,12 +86,18 @@
         { "department": "Sales", "count": 2 }
       ]
     },
+    "validationConfig": {
+      "orderMatters": false,
+      "numericTolerance": 0,
+      "caseSensitive": false
+    },
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:00:00.000Z"
   },
   {
     "title": "Total Order Value per Customer",
-    "description": "Medium",
+    "description": "Join two tables and aggregate order amounts per customer.",
+    "difficulty": "medium",
     "question": "Find total order value for each customer",
     "sampleTables": [
       {
@@ -119,12 +132,18 @@
         { "name": "Saurabh", "total_amount": 1500.0 }
       ]
     },
+    "validationConfig": {
+      "orderMatters": false,
+      "numericTolerance": 0.01,
+      "caseSensitive": false
+    },
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:00:00.000Z"
   },
   {
     "title": "Highest Paid Employee",
-    "description": "Hard",
+    "description": "Use a subquery or window function to find employees with maximum salary.",
+    "difficulty": "hard",
     "question": "Find the employee(s) with the highest salary",
     "sampleTables": [
       {
@@ -147,6 +166,11 @@
         { "id": 2, "name": "Bob", "salary": 85000 },
         { "id": 3, "name": "Charlie", "salary": 85000 }
       ]
+    },
+    "validationConfig": {
+      "orderMatters": false,
+      "numericTolerance": 0,
+      "caseSensitive": false
     },
     "createdAt": "2025-01-01T00:00:00.000Z",
     "updatedAt": "2025-01-01T00:00:00.000Z"

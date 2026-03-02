@@ -1,16 +1,11 @@
 import mongoose, { Schema, Document } from "mongoose";
-import type { IColumn, IExpectedOutput, ITable } from "../types/types";
-
-export interface IAssignment extends Document {
-  title: string;
-  description: string;
-  question: string;
-  difficulty: "easy" | "medium" | "hard";
-  sampleTables: ITable[];
-  expectedOutput: IExpectedOutput;
-  createdAt: Date;
-  updatedAt: Date;
-}
+import type {
+  IAssignment,
+  IColumn,
+  IExpectedOutput,
+  ITable,
+  ValidationConfig,
+} from "../types/types";
 
 const ColumnSchema = new Schema<IColumn>({
   columnName: {
@@ -47,6 +42,21 @@ const ExpectedOutputSchema = new Schema<IExpectedOutput>({
   },
 });
 
+const ValidationConfigSchema = new Schema<ValidationConfig>({
+  orderMatters: {
+    type: Boolean,
+    default: false,
+  },
+  numericTolerance: {
+    type: Number,
+    default: 0,
+  },
+  caseSensitive: {
+    type: Boolean,
+    default: false,
+  },
+});
+
 const AssignmentSchema = new Schema<IAssignment>(
   {
     title: {
@@ -71,6 +81,14 @@ const AssignmentSchema = new Schema<IAssignment>(
     expectedOutput: {
       type: ExpectedOutputSchema,
       required: true,
+    },
+    validationConfig: {
+      type: ValidationConfigSchema,
+      default: () => ({
+        orderMatters: false,
+        numericTolerance: 0,
+        caseSensitive: false,
+      }),
     },
   },
   {

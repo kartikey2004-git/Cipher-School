@@ -1,25 +1,40 @@
 class ApiResponse<T = any> {
   public statusCode: number;
-  public data: T;
-  public message: string;
   public success: boolean;
+  public data: T;
+  public error: string | null;
+  public message: string;
+  public meta?: Record<string, any>;
 
-  constructor(statusCode: number, data: T, message: string = "Success") {
+  constructor(
+    statusCode: number,
+    data: T,
+    message: string = "Success",
+    meta?: Record<string, any>
+  ) {
     this.statusCode = statusCode;
-    this.data = data;
-    this.message = message;
     this.success = statusCode < 400;
+    this.data = data;
+    this.error = null;
+    this.message = message;
+
+    if (meta) {
+      this.meta = meta;
+    }
+  }
+
+  toJSON() {
+    const json: Record<string, any> = {
+      success: this.success,
+      data: this.data,
+      error: this.error,
+      message: this.message,
+    };
+    if (this.meta) {
+      json.meta = this.meta;
+    }
+    return json;
   }
 }
 
 export { ApiResponse };
-
-/*
-
-Informational responses (100 – 199)
-Successful responses (200 – 299)
-Redirection messages (300 – 399)
-Client error responses (400 – 499)
-Server error responses (500 – 599)
-
-*/

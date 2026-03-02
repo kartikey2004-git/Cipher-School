@@ -1,19 +1,20 @@
 import express from "express";
 import cors from "cors";
 import { ApiError } from "./src/utils/ApiError";
+import { env } from "./src/config/env";
+import { identityMiddleware } from "./src/middleware/identity.middleware";
 
 const app = express();
 
-// We can change the corsOptions object : CORS options object mein hum define karte hain ki kaunse URLs (origins) se frontend par request accept ki jaa sakti hai.
+app.use(identityMiddleware);
 
 app.use(
   cors({
-    origin: process.env.CORS_ORIGIN,
+    origin: env.CORS_ORIGIN,
     credentials: true,
+    exposedHeaders: ["X-Identity-ID"],
   })
 );
-
-// Returns middleware that only parses json and only looks at requests where the Content-Type header matches the type option.
 
 app.use(express.json({ limit: "16kb" }));
 
@@ -21,15 +22,20 @@ app.get("/health", (_, res) => {
   res.status(200).json({ status: "API is running fine" });
 });
 
-// routes import
 import assignmentRouter from "./src/routes/assignment.routes";
 import sandboxRouter from "./src/routes/sandbox.routes";
+import progressRouter from "./src/routes/progress.routes";
+import hintRouter from "./src/routes/hint.routes";
+import gradingRouter from "./src/routes/grading.routes";
+import identityRouter from "./src/routes/identity.routes";
 
-// routes
 app.use("/api/assignments", assignmentRouter);
 app.use("/api/sandbox", sandboxRouter);
+app.use("/api/progress", progressRouter);
+app.use("/api/hints", hintRouter);
+app.use("/api/grading", gradingRouter);
+app.use("/api/identity", identityRouter);
 
-// Global error handler
 app.use(
   (
     err: any,
@@ -39,21 +45,20 @@ app.use(
   ) => {
     if (err instanceof ApiError) {
       return res.status(err.statusCode).json({
-        statusCode: err.statusCode,
-        data: err.data,
+        success: false,
+        data: null,
+        error: err.message,
         message: err.message,
-        success: err.success,
-        errors: err.errors,
+        meta: err.errors?.length ? { errors: err.errors } : undefined,
       });
     }
 
     console.error("Unhandled error:", err);
     return res.status(500).json({
-      statusCode: 500,
-      data: null,
-      message: "Internal Server Error",
       success: false,
-      errors: [],
+      data: null,
+      error: "Internal Server Error",
+      message: "Internal Server Error",
     });
   }
 );

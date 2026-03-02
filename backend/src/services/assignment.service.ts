@@ -4,7 +4,7 @@ import { ApiError } from "../utils/ApiError";
 export const getallAssignments = async () => {
   try {
     const assignments = await Assignment.find()
-      .select("_id title description")
+      .select("_id title description difficulty")
       .sort({ createdAt: -1 });
 
     if (!assignments.length) {

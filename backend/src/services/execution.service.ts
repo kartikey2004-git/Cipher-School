@@ -10,8 +10,9 @@ import {
 } from "../types/types";
 import { pool } from "../db/postgres";
 import { ApiError } from "../utils/ApiError";
-
-// Get sandbox schema name based on identity and assignment
+import { logExecution } from "./executionLog.service";
+import { updateProgress } from "./progress.service";
+import { env } from "../config/env";
 
 const getSandboxSchema = async (
   identityId: string,
@@ -27,7 +28,6 @@ const getSandboxSchema = async (
       throw new Error("Sandbox not found for this identity and assignment");
     }
 
-    // Update last used timestamp
     await SandboxMeta.updateOne(
       { _id: sandbox._id },
       { lastUsedAt: new Date() }
@@ -39,8 +39,6 @@ const getSandboxSchema = async (
     throw error;
   }
 };
-
-// Validate SQL query against allowed and blocked keywords, and basic syntax rules
 
 const validateQuery = (
   query: string
@@ -60,8 +58,6 @@ const validateQuery = (
 
   const normalizedQuery = query.trim().toLowerCase();
 
-  // Check for multiple statements (semicolon detection)
-
   const trimmedQuery = query.trim().replace(/;\s*$/, "");
 
   const statementCount = (trimmedQuery.match(/;/g) || []).length;
@@ -76,7 +72,6 @@ const validateQuery = (
     };
   }
 
-  // Extract first keyword
   const firstWordMatch = normalizedQuery.match(/^(\w+)/);
   if (!firstWordMatch || !firstWordMatch[1]) {
     return {
@@ -90,7 +85,6 @@ const validateQuery = (
 
   const firstKeyword = firstWordMatch[1].toUpperCase();
 
-  // Check if keyword is allowed
   if (!ALLOWED_KEYWORDS.includes(firstKeyword)) {
     return {
       isValid: false,
@@ -102,7 +96,6 @@ const validateQuery = (
     };
   }
 
-  // Check for blocked keywords anywhere in the query
   for (const blockedKeyword of BLOCKED_KEYWORDS) {
     const regex = new RegExp(`\\b${blockedKeyword}\\b`, "i");
     if (regex.test(query)) {
@@ -120,28 +113,27 @@ const validateQuery = (
   return { isValid: true };
 };
 
-// Format PostgreSQL result into QueryResult structure
-
 const formatResult = (pgResult: any, executionTime: number): QueryResult => {
   const columns = pgResult.fields?.map((field: any) => field.name) || [];
   const rows = pgResult.rows || [];
   const rowCount = pgResult.rowCount || 0;
 
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const safeRowCount =
+    typeof rowCount === "number" ? rowCount : safeRows.length;
+
   return {
     columns,
-    rows,
-    rowCount,
+    rows: safeRows,
+    rowCount: safeRowCount,
     executionTime,
   };
 };
-
-// Convert PostgreSQL errors into structured ExecutionError types
 
 const convertPostgresError = (error: any): ExecutionError => {
   const code = error.code;
   const message = error.message || "Unknown database error";
 
-  // Syntax errors
   if (code === "42601" || message.includes("syntax error")) {
     return {
       type: "SYNTAX_ERROR",
@@ -150,7 +142,6 @@ const convertPostgresError = (error: any): ExecutionError => {
     };
   }
 
-  // Column/table not found
   if (
     code === "42703" ||
     (message.includes("column") && message.includes("does not exist"))
@@ -173,7 +164,6 @@ const convertPostgresError = (error: any): ExecutionError => {
     };
   }
 
-  // Permission errors
   if (code === "42501" || message.includes("permission")) {
     return {
       type: "PERMISSION_ERROR",
@@ -182,7 +172,6 @@ const convertPostgresError = (error: any): ExecutionError => {
     };
   }
 
-  // Generic runtime error
   return {
     type: "RUNTIME_ERROR",
     message: "Query execution failed",
@@ -190,46 +179,23 @@ const convertPostgresError = (error: any): ExecutionError => {
   };
 };
 
-// Execute SQL query with a timeout to prevent long-running queries
-
-const executeQueryWithTimeout = (
+const executeQueryWithTimeout = async (
   client: any,
   query: string,
-  timeout: number = DEFAULT_TIMEOUT
+  timeout: number = env.QUERY_TIMEOUT || DEFAULT_TIMEOUT
 ): Promise<any> => {
-  return new Promise((resolve, reject) => {
-    let settled = false;
-
-    const timer = setTimeout(async () => {
-      if (settled) return;
-      settled = true;
-      try {
-        // Cancel the running query on the PostgreSQL backend
-        await client.query("SELECT pg_cancel_backend(pg_backend_pid())");
-      } catch (_) {
-        // Ignore cancel errors
-      }
-      reject(new Error("Query timeout"));
-    }, timeout);
-
-    client
-      .query(query)
-      .then((result: any) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        resolve(result);
-      })
-      .catch((error: any) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
+  await client.query(`SET statement_timeout = ${timeout}`);
+  try {
+    return await client.query(query);
+  } catch (error: any) {
+    if (error.code === "57014") {
+      throw new Error("Query timeout");
+    }
+    throw error;
+  } finally {
+    await client.query(`SET statement_timeout = 0`).catch(() => {});
+  }
 };
-
-// Main function to execute query: get sandbox, validate, execute, and format result
 
 const executequery = async (
   identityId: string,
@@ -239,10 +205,8 @@ const executequery = async (
   const startTime = Date.now();
 
   try {
-    // 1. Get sandbox schema
     const schemaName = await getSandboxSchema(identityId, assignmentId);
 
-    // 2. Validate query
     const validation = validateQuery(query);
     if (!validation.isValid) {
       const error = validation.error!;
@@ -251,37 +215,88 @@ const executequery = async (
       );
     }
 
-    // 3. Execute query with isolation
     const client = await pool.connect();
     try {
-      // Validate schema name contains only safe characters to prevent SQL injection
       if (!/^[a-zA-Z0-9_]+$/.test(schemaName)) {
         throw new ApiError(500, "Invalid schema name detected");
       }
 
-      // Set search path to sandbox schema for isolation
+      const crossSchemaPattern = /\b(sb_[a-zA-Z0-9_]+)\s*\./i;
+      const crossSchemaMatch = query.match(crossSchemaPattern);
+      if (crossSchemaMatch && crossSchemaMatch[1] !== schemaName) {
+        throw new ApiError(
+          403,
+          "PERMISSION_ERROR: Cross-schema access is not allowed"
+        );
+      }
+
+      const systemSchemaPattern =
+        /\b(public|pg_catalog|pg_temp|information_schema)\s*\./i;
+      if (systemSchemaPattern.test(query)) {
+        throw new ApiError(
+          403,
+          "PERMISSION_ERROR: Access to system schemas is not allowed"
+        );
+      }
+
       await client.query(`SET search_path TO "${schemaName}"`);
 
       // Execute query with timeout
       const result = await executeQueryWithTimeout(client, query);
 
-      // Calculate execution time
+      const maxRows = env.MAX_RESULT_ROWS || 1000;
+      if (result.rows && result.rows.length > maxRows) {
+        result.rows = result.rows.slice(0, maxRows);
+        result.rowCount = maxRows;
+      }
+
       const executionTime = Date.now() - startTime;
 
-      // Format and return result
+      await logExecution({
+        identityId,
+        assignmentId,
+        query,
+        executionTime,
+        rowCount: result.rowCount || 0,
+        status: "success",
+        schemaName,
+      });
+
+      await updateProgress(identityId, assignmentId, {
+        lastQuery: query,
+        incrementAttempt: true,
+      });
+
       return formatResult(result, executionTime);
     } finally {
+      await client.query(`RESET search_path`).catch(() => {});
       client.release();
     }
   } catch (error: any) {
     console.error("Query execution error:", error);
 
-    // Re-throw ApiError instances as-is
+    const executionTime = Date.now() - startTime;
+
+    let schemaName = "unknown";
+    try {
+      schemaName = await getSandboxSchema(identityId, assignmentId);
+    } catch (e) {}
+
+    await logExecution({
+      identityId,
+      assignmentId,
+      query,
+      executionTime,
+      rowCount: 0,
+      status: "error",
+      errorMessage: error.message,
+      schemaName,
+    });
+
     if (error instanceof ApiError) {
       throw error;
     }
 
-    // Handle timeout
     if (error.message === "Query timeout") {
       throw new ApiError(
         408,
@@ -289,7 +304,6 @@ const executequery = async (
       );
     }
 
-    // Handle sandbox not found
     if (error.message.includes("Sandbox not found")) {
       throw new ApiError(
         404,
@@ -297,7 +311,6 @@ const executequery = async (
       );
     }
 
-    // Handle validation errors
     if (
       error.message.includes("EMPTY_QUERY") ||
       error.message.includes("FORBIDDEN_KEYWORD") ||
@@ -307,7 +320,6 @@ const executequery = async (
       throw new ApiError(400, `VALIDATION_ERROR: ${error.message}`);
     }
 
-    // Handle PostgreSQL errors
     if (error.code) {
       const pgError = convertPostgresError(error);
       throw new ApiError(
@@ -316,7 +328,6 @@ const executequery = async (
       );
     }
 
-    // Generic error
     throw new ApiError(500, error.message || "An unknown error occurred");
   }
 };

@@ -7,6 +7,7 @@ import {
 import { ApiResponse } from "../utils/ApiResponse";
 import { ApiError } from "../utils/ApiError";
 
+
 const getAllAssignments = asyncHandler(async (req: Request, res: Response) => {
   const assignments = await getallAssignments();
 

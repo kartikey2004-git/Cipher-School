@@ -5,8 +5,6 @@ import { Assignment } from "../models/assignment.model";
 import { ApiError } from "../utils/ApiError";
 import { SandboxMeta } from "../models/sandboxMeta.model";
 
-// Generate a unique schema name based on identityId and assignmentId
-
 const generateSchemaName = (
   identityId: string,
   assignmentId: string
@@ -19,8 +17,6 @@ const generateSchemaName = (
 
   return schemaName.length > 63 ? schemaName.substring(0, 63) : schemaName;
 };
-
-// Check if a sandbox already exists for the given identityId and assignmentId
 
 const findExistingSandbox = async (
   identityId: string,
@@ -51,8 +47,6 @@ const findExistingSandbox = async (
   }
 };
 
-// Create a new schema for the sandbox using the generated schema name
-
 const createSchema = async (schemaName: string): Promise<void> => {
   try {
     const client = await pool.connect();
@@ -68,8 +62,6 @@ const createSchema = async (schemaName: string): Promise<void> => {
   }
 };
 
-// Generate a CREATE TABLE statement based on the provided schema name and table definition
-
 const generateCreateTableStatement = (
   schemaName: string,
   table: ITable
@@ -83,8 +75,6 @@ const generateCreateTableStatement = (
 
   return `CREATE TABLE "${schemaName}"."${table.tableName}" (${columnDefinitions})`;
 };
-
-// Create tables in the sandbox schema based on the assignment's sample tables
 
 const createTables = async (
   schemaName: string,
@@ -110,8 +100,6 @@ const createTables = async (
     client.release();
   }
 };
-
-// Generate an INSERT statement to seed data into the sandbox tables based on the provided schema name, table definition, and row data
 
 const generateInsertStatement = (
   schemaName: string,
@@ -143,8 +131,6 @@ const generateInsertStatement = (
   return `INSERT INTO "${schemaName}"."${tableName}" (${columnNames}) VALUES (${values})`;
 };
 
-// Insert rows into the sandbox tables based on the assignment's sample data
-
 const insertRows = async (
   schemaName: string,
   sampleTables: ITable[]
@@ -174,18 +160,6 @@ const insertRows = async (
     client.release();
   }
 };
-
-/*
-
-- Initialize a sandbox environment for a user based on their identityId and the assignmentId.
-
-    - This function checks if a sandbox already exists for the user and assignment
-
-    - If it exists, it returns the existing schema name and indicates that it's not new.
-
-    - If it doesn't exist, it generates a new schema, tables, and seeds data based on the assignment's sample tables.
-
-*/
 
 const initsandbox = async (
   identityId: string,
@@ -225,11 +199,23 @@ const initsandbox = async (
 
     const schemaName = generateSchemaName(identityId, assignmentId);
 
-    await createSchema(schemaName);
-
-    await createTables(schemaName, assignment.sampleTables);
-
-    await insertRows(schemaName, assignment.sampleTables);
+    try {
+      await createSchema(schemaName);
+      await createTables(schemaName, assignment.sampleTables);
+      await insertRows(schemaName, assignment.sampleTables);
+    } catch (error) {
+      try {
+        const client = await pool.connect();
+        try {
+          await client.query(`DROP SCHEMA IF EXISTS "${schemaName}" CASCADE`);
+        } finally {
+          client.release();
+        }
+      } catch (cleanupErr) {
+        console.error("Failed to cleanup partial sandbox:", cleanupErr);
+      }
+      throw error;
+    }
 
     const newSandbox = await SandboxMeta.create({
       identityId,

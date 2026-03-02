@@ -4,6 +4,8 @@ import type { ExecuteQueryBody } from "../types/types";
 import { ApiError } from "../utils/ApiError";
 import { ApiResponse } from "../utils/ApiResponse";
 import { executequery } from "../services/execution.service";
+import { SandboxMeta } from "../models/sandboxMeta.model";
+import mongoose from "mongoose";
 
 const executeQuery = asyncHandler(async (req: Request, res: Response) => {
   const { assignmentId, query } = req.body as ExecuteQueryBody;
@@ -22,6 +24,18 @@ const executeQuery = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(401, "Identity not found in request");
   }
 
+  const existingSandbox = await SandboxMeta.findOne({
+    identityId,
+    assignmentId: new mongoose.Types.ObjectId(assignmentId),
+  });
+
+  if (!existingSandbox) {
+    throw new ApiError(
+      404,
+      "Sandbox not found. Please initialize sandbox first."
+    );
+  }
+
   try {
     const result = await executequery(identityId, assignmentId, query);
 
@@ -38,28 +52,27 @@ const executeQuery = asyncHandler(async (req: Request, res: Response) => {
 
     const errorMessage = error.message || "Unknown execution error";
 
-    // Extract error type and message
     const [errorType, ...messageParts] = errorMessage.split(": ");
     const message = messageParts.join(": ") || errorMessage;
 
     let statusCode = 500;
     switch (errorType) {
       case "VALIDATION_ERROR":
-      statusCode = 400;
-      break;
+        statusCode = 400;
+        break;
       case "SANDBOX_NOT_FOUND":
-      statusCode = 404;
-      break;
+        statusCode = 404;
+        break;
       case "TIMEOUT":
-      statusCode = 408;
-      break;
+        statusCode = 408;
+        break;
       case "PERMISSION_ERROR":
-      statusCode = 403;
-      break;
+        statusCode = 403;
+        break;
       case "SYNTAX_ERROR":
       case "RUNTIME_ERROR":
-      statusCode = 400;
-      break;
+        statusCode = 400;
+        break;
     }
 
     throw new ApiError(statusCode, message);

@@ -168,14 +168,26 @@ backend/
 
 ## 5. Environment Variables
 
-| Variable       | Required | Description                                 | Example                                               |
-| -------------- | -------- | ------------------------------------------- | ----------------------------------------------------- |
-| `PORT`         | No       | Server port (defaults to `5000`)            | `5000`                                                |
-| `MONGODB_URL`  | **Yes**  | MongoDB connection string (without DB name) | `mongodb://localhost:27017`                           |
-| `POSTGRES_URL` | **Yes**  | PostgreSQL connection string                | `postgresql://kartikey:pass@localhost:5432/sql-learn` |
-| `CORS_ORIGIN`  | No       | Allowed CORS origin(s) for frontend         | `http://localhost:3000`                               |
+| Variable          | Required | Default         | Description                                 | Example                                           |
+| ----------------- | -------- | --------------- | ------------------------------------------- | ------------------------------------------------- |
+| `PORT`            | No       | `5000`          | Server port                                 | `5000`                                            |
+| `MONGODB_URL`     | **Yes**  | —               | MongoDB connection string (without DB name) | `mongodb://localhost:27017`                       |
+| `POSTGRES_URL`    | **Yes**  | —               | PostgreSQL connection string                | `postgresql://user:pass@localhost:5432/sql-learn` |
+| `CORS_ORIGIN`     | No       | `*`             | Allowed CORS origin(s) for frontend         | `http://localhost:3000`                           |
+| `CLEANUP_TOKEN`   | No       | `""`            | Secret token for cleanup endpoints          | `my-secret-cleanup-token`                         |
+| `QUERY_TIMEOUT`   | No       | `5000`          | Query execution timeout in milliseconds     | `5000`                                            |
+| `MAX_RESULT_ROWS` | No       | `1000`          | Maximum rows returned from a query          | `1000`                                            |
+| `AI_API_KEY`      | No       | `""`            | API key for AI/LLM hint generation          | `sk-...`                                          |
+| `AI_API_URL`      | No       | `""`            | AI API endpoint URL                         | `https://api.openai.com/v1/chat/completions`      |
+| `AI_MODEL`        | No       | `gpt-3.5-turbo` | AI model name for hint generation           | `gpt-4`                                           |
 
-> `env.ts` throws at startup if `MONGODB_URL` is missing. `POSTGRES_URL` is asserted with `!` (will crash at runtime if absent).
+> **Note:** `env.ts` throws at startup if `MONGODB_URL` or `POSTGRES_URL` are missing. AI variables are optional — hint generation falls back to rule-based hints when unset.
+>
+> Copy the provided `.env.example` to `.env` and fill in your values:
+>
+> ```bash
+> cp .env.example .env
+> ```
 
 ---
 
@@ -493,13 +505,27 @@ MongoDB                              PostgreSQL
    - Password: `npg_Gd1hR7jebZyJ`
    - Database: `sql-learn`
 
-4. **Create `.env` file in the `backend/` root:**
+4. **Create `.env` file from the example:**
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then edit `.env` with your values:
 
    ```env
    PORT=5000
    MONGODB_URL=mongodb://localhost:27017
    POSTGRES_URL=postgresql://kartikey:npg_Gd1hR7jebZyJ@localhost:5432/sql-learn
    CORS_ORIGIN=http://localhost:3000
+   CLEANUP_TOKEN=your-cleanup-secret-token
+   QUERY_TIMEOUT=5000
+   MAX_RESULT_ROWS=1000
+
+   # Optional — for AI-powered hints
+   AI_API_KEY=
+   AI_API_URL=https://api.openai.com/v1/chat/completions
+   AI_MODEL=gpt-3.5-turbo
    ```
 
 5. **Seed assignments into MongoDB:**

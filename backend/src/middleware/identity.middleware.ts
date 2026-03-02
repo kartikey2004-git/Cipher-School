@@ -9,16 +9,12 @@ declare global {
   }
 }
 
-/*
+const isValidIdentityId = (id: string): boolean => {
+  if (!id || typeof id !== "string") return false;
+  if (id.length > 128) return false;
+  return /^[a-zA-Z0-9_\-]+$/.test(id);
+};
 
-- This middleware checks for an "X-Identity-ID" header in the incoming request.
-
-  - If it doesn't find one, it generates a new unique identity ID (using a UUID) and sets it in the response header.
-
-  - The identity ID is then attached to the request object for use in subsequent middleware or route handlers.
-
-*/
-  
 export const identityMiddleware = async (
   req: Request,
   res: Response,
@@ -27,7 +23,7 @@ export const identityMiddleware = async (
   try {
     let identityId = req.headers["x-identity-id"] as string;
 
-    if (!identityId) {
+    if (!identityId || !isValidIdentityId(identityId)) {
       identityId = `guest_${randomUUID()}`;
       res.setHeader("X-Identity-ID", identityId);
     }
@@ -38,9 +34,11 @@ export const identityMiddleware = async (
     console.error("Identity middleware error:", error);
     res.status(500).json({
       success: false,
-      message: "Identity generation failed",
       data: null,
-      errors: [],
+      error: "Identity generation failed",
+      message: "Identity generation failed",
     });
   }
 };
+
+export { isValidIdentityId };
